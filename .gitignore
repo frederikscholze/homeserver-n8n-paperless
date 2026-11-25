@@ -1,0 +1,8 @@
+.env
+n8n_data/
+proxy_data/
+proxy_letsencrypt/
+paperless_data/
+*.tar.gz
+*.bak
+*.bak2

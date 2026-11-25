@@ -1,0 +1,68 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: always
+    environment:
+      - N8N_HOST=n8n.frederik-scholze.de
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - N8N_WEBHOOK_URL=https://n8n.frederik-scholze.de/
+      - N8N_PROXY_HOPS=1
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+
+  proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+      - '127.0.0.1:81:81'
+    volumes:
+      - ./proxy_data:/data
+      - ./proxy_letsencrypt:/etc/letsencrypt
+
+  paperless-broker:
+    image: docker.io/library/redis:7
+    restart: always
+    volumes:
+      - paperless_redis:/data
+
+  paperless-db:
+    image: docker.io/library/postgres:16
+    restart: always
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD}
+    volumes:
+      - paperless_pgdata:/var/lib/postgresql/data
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: always
+    depends_on:
+      - paperless-db
+      - paperless-broker
+    environment:
+      - PAPERLESS_REDIS=redis://paperless-broker:6379
+      - PAPERLESS_DBHOST=paperless-db
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASSWORD}
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY}
+      - PAPERLESS_URL=https://paperless.frederik-scholze.de
+      - PAPERLESS_TIME_ZONE=Europe/Berlin
+      - PAPERLESS_OCR_LANGUAGE=deu+eng
+      - PAPERLESS_OCR_LANGUAGES=deu
+    volumes:
+      - paperless_data_vol:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - ./paperless_data/export:/usr/src/paperless/export
+      - ./paperless_data/consume:/usr/src/paperless/consume
+
+volumes:
+  paperless_redis:
+  paperless_pgdata:
+  paperless_data_vol:
+  paperless_media:
